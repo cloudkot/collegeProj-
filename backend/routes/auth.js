@@ -1,33 +1,52 @@
 import { Hono } from 'hono'
 import { sign } from 'hono/jwt'
+import bcrypt from 'bcryptjs'
 import { HTTPException } from 'hono/http-exception'
-// import { db } from '../db.js' // позже
+import { findUserByEmail, findUserById } from '../db.js'
+import { authMiddleware } from '../auth.js'
 
 const auth = new Hono()
 
 auth.post('/login', async (c) => {
-  const body = await c.req.json()
-  const { email, password } = body
+  const { email, password } = await c.req.json()
 
-  // TODO: проверка в БД
-  if (email !== 'test@test.com' || password !== '123') {
-    throw new HTTPException(401, { message: 'Неверный email или пароль' })
+  if (!email || !password) {
+    throw new HTTPException(400, { message: 'Email and password required' })
+  }
+
+  const user = findUserByEmail(email)
+  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+    throw new HTTPException(401, { message: 'Invalid credentials' })
   }
 
   const token = await sign(
-    { sub: 1, role: 'teacher', name: 'Тестовый Преподаватель' },
+    { sub: user.id, role: user.role, name: user.name, groupId: user.group_id },
     process.env.JWT_SECRET || 'dev-secret'
   )
 
   return c.json({
     token,
-    user: { id: 1, role: 'teacher', name: 'Тестовый Преподаватель' }
+    user: {
+      id: user.id,
+      role: user.role,
+      name: user.name,
+      groupId: user.group_id,
+    },
   })
 })
 
-auth.get('/me', async (c) => {
-  // TODO: middleware для проверки токена
-  return c.json({ id: 1, role: 'teacher', name: 'Тестовый Преподаватель' })
+auth.get('/me', authMiddleware, async (c) => {
+  const payload = c.get('user')
+  const user = findUserById(payload.sub)
+  if (!user) {
+    throw new HTTPException(404, { message: 'User not found' })
+  }
+  return c.json({
+    id: user.id,
+    role: user.role,
+    name: user.name,
+    groupId: user.group_id,
+  })
 })
 
 export default auth

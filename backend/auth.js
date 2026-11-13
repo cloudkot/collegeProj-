@@ -4,7 +4,7 @@ import { HTTPException } from 'hono/http-exception'
 export const authMiddleware = async (c, next) => {
   const header = c.req.header('Authorization')
   if (!header || !header.startsWith('Bearer ')) {
-    throw new HTTPException(401, { message: 'Требуется авторизация' })
+    throw new HTTPException(401, { message: 'Unauthorized' })
   }
 
   const token = header.slice(7)
@@ -13,15 +13,15 @@ export const authMiddleware = async (c, next) => {
     c.set('user', payload)
     await next()
   } catch {
-    throw new HTTPException(401, { message: 'Неверный токен' })
+    throw new HTTPException(401, { message: 'Invalid token' })
   }
 }
 
-export const requireRole = (role) => {
+export const requireRole = (...roles) => {
   return async (c, next) => {
     const user = c.get('user')
-    if (!user || user.role !== role) {
-      throw new HTTPException(403, { message: 'Доступ запрещён' })
+    if (!user || !roles.includes(user.role)) {
+      throw new HTTPException(403, { message: 'Forbidden' })
     }
     await next()
   }
