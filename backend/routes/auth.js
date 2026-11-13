@@ -3,9 +3,11 @@ import { sign } from 'hono/jwt'
 import bcrypt from 'bcryptjs'
 import { HTTPException } from 'hono/http-exception'
 import { findUserByEmail, findUserById } from '../db.js'
-import { authMiddleware } from '../auth.js'
+import { authMiddleware, JWT_SECRET } from '../auth.js'
 
 const auth = new Hono()
+
+const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7
 
 auth.post('/login', async (c) => {
   const { email, password } = await c.req.json()
@@ -19,9 +21,17 @@ auth.post('/login', async (c) => {
     throw new HTTPException(401, { message: 'Invalid credentials' })
   }
 
+  const now = Math.floor(Date.now() / 1000)
   const token = await sign(
-    { sub: user.id, role: user.role, name: user.name, groupId: user.group_id },
-    process.env.JWT_SECRET || 'dev-secret'
+    {
+      sub: user.id,
+      role: user.role,
+      name: user.name,
+      groupId: user.group_id,
+      iat: now,
+      exp: now + TOKEN_TTL_SECONDS,
+    },
+    JWT_SECRET
   )
 
   return c.json({
@@ -38,9 +48,11 @@ auth.post('/login', async (c) => {
 auth.get('/me', authMiddleware, async (c) => {
   const payload = c.get('user')
   const user = findUserById(payload.sub)
+  
   if (!user) {
     throw new HTTPException(404, { message: 'User not found' })
   }
+  
   return c.json({
     id: user.id,
     role: user.role,

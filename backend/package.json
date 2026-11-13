@@ -1,20 +1,19 @@
 {
   "name": "college-materials-backend",
   "version": "0.1.0",
-  "type": "commonjs",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "node --watch server.js",
+    "env": "node scripts/generate-env.js",
+    "admin": "node scripts/create-admin.js"
   },
   "dependencies": {
-    "@hono/node-server": "^2.1.8",
-    "bcryptjs": "^3.0.3",
-    "csv-parse": "^7.0.3",
-    "formidable": "^3.5.4",
-    "hono": "^4.13.18"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.0"
+    "@hono/node-server": "^1.13.7",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^12.9.0",
+    "csv-parse": "^5.6.0",
+    "hono": "^4.6.14"
   }
 }

@@ -14,7 +14,7 @@ const TYPES = [
   { type: 'sick', label: 'Болею, можно к следующей паре' },
 ]
 
-reactions.get('/types', (c) => c.json(TYPES))
+reactions.get('/types', requireRole('student'), (c) => c.json(TYPES))
 
 reactions.post(
   '/materials/:id/reactions',
@@ -29,7 +29,9 @@ reactions.post(
     }
 
     const material = getMaterial(materialId)
-    if (!material) throw new HTTPException(404, { message: 'Material not found' })
+    if (!material) {
+      throw new HTTPException(404, { message: 'Material not found' })
+    }
 
     const chat = getChat(material.chat_id)
     if (!chat || chat.group_id !== user.groupId) {

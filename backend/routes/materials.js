@@ -1,14 +1,10 @@
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import fs from 'node:fs'
-import {
-  authMiddleware,
-  requireRole,
-} from '../auth.js'
+import { authMiddleware, requireRole } from '../auth.js'
 import {
   getChat,
   createMaterial,
-  listMaterials,
   getMaterial,
   markViewed,
   markDownloaded,
@@ -30,18 +26,14 @@ materials.use('*', authMiddleware)
 const assertMaterialAccess = (user, materialId) => {
   const material = getMaterial(materialId)
   if (!material) throw new HTTPException(404, { message: 'Material not found' })
+  
   const chat = getChat(material.chat_id)
   if (!chat) throw new HTTPException(404, { message: 'Chat not found' })
 
-  if (user.role === 'student') {
-    if (chat.group_id !== user.groupId) {
-      throw new HTTPException(403, { message: 'Forbidden' })
-    }
-  } else if (user.role === 'teacher') {
-    if (chat.teacher_id !== user.sub) {
-      throw new HTTPException(403, { message: 'Forbidden' })
-    }
-  } else if (user.role !== 'admin') {
+  if (user.role === 'student' && chat.group_id !== user.groupId) {
+    throw new HTTPException(403, { message: 'Forbidden' })
+  }
+  if (user.role === 'teacher' && chat.teacher_id !== user.sub) {
     throw new HTTPException(403, { message: 'Forbidden' })
   }
 
@@ -56,6 +48,7 @@ materials.post(
     const chatId = Number(c.req.param('chatId'))
     const chat = getChat(chatId)
     if (!chat) throw new HTTPException(404, { message: 'Chat not found' })
+    
     if (user.role === 'teacher' && chat.teacher_id !== user.sub) {
       throw new HTTPException(403, { message: 'Forbidden' })
     }
@@ -112,9 +105,12 @@ materials.get('/:id/file', async (c) => {
   }
 
   const data = fs.readFileSync(filePath)
+  
+  const safeName = encodeURIComponent(`${material.original_name}.pdf`)
+  
   return c.body(data, 200, {
     'Content-Type': 'application/pdf',
-    'Content-Disposition': `inline; filename="${material.original_name}.pdf"`,
+    'Content-Disposition': `inline; filename="${safeName}"; filename*=UTF-8''${safeName}`,
   })
 })
 

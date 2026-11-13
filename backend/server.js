@@ -16,7 +16,7 @@ app.use('*', logger())
 app.use(
   '*',
   cors({
-    origin: 'http://localhost:4200',
+    origin: process.env.FRONTEND_URL || 'http://localhost:4200',
     credentials: true,
   })
 )
@@ -39,7 +39,32 @@ app.onError((err, c) => {
 
 const port = Number(process.env.PORT) || 3000
 const server = serve({ fetch: app.fetch, port }, (info) => {
-  console.log(`API on http://localhost:${info.port}`)
+  console.log('\n=============================================')
+  console.log('  College Materials Backend')
+  console.log('=============================================')
+  console.log(`  Server running at: http://localhost:${info.port}`)
+  console.log(`  Health check:      http://localhost:${info.port}/api/health`)
+  console.log(`  Frontend origin:   ${process.env.FRONTEND_URL || 'http://localhost:4200'}`)
+  console.log('=============================================')
+  console.log('  Available endpoints:')
+  console.log('    POST   /api/auth/login')
+  console.log('    GET    /api/auth/me')
+  console.log('    GET    /api/chats')
+  console.log('    GET    /api/chats/:id')
+  console.log('    POST   /api/materials/chats/:chatId/materials')
+  console.log('    GET    /api/materials/:id/file')
+  console.log('    POST   /api/materials/:id/opened')
+  console.log('    POST   /api/materials/:id/downloaded')
+  console.log('    GET    /api/materials/:id/stats')
+  console.log('    GET    /api/reactions/types')
+  console.log('    POST   /api/reactions/materials/:id/reactions')
+  console.log('    GET    /api/admin/groups')
+  console.log('    POST   /api/admin/groups')
+  console.log('    GET    /api/admin/teachers')
+  console.log('    POST   /api/admin/teachers')
+  console.log('    POST   /api/admin/groups/:id/teachers')
+  console.log('    POST   /api/admin/students/import')
+  console.log('=============================================\n')
 })
 
 process.on('SIGINT', () => {

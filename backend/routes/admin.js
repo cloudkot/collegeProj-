@@ -20,8 +20,11 @@ admin.get('/groups', (c) => c.json(listGroups()))
 
 admin.post('/groups', async (c) => {
   const { name } = await c.req.json()
-  if (!name || !name.trim()) {
+  if (!name || typeof name !== 'string' || !name.trim()) {
     throw new HTTPException(400, { message: 'Name required' })
+  }
+  if (name.length > 100) {
+    throw new HTTPException(400, { message: 'Name too long' })
   }
   try {
     const id = createGroup(name.trim())
@@ -40,12 +43,17 @@ admin.get('/teachers', (c) => {
 
 admin.post('/teachers', async (c) => {
   const { email, password, name } = await c.req.json()
+  
   if (!email || !password || !name) {
     throw new HTTPException(400, { message: 'email, password, name required' })
+  }
+  if (password.length < 6) {
+    throw new HTTPException(400, { message: 'Password must be at least 6 chars' })
   }
   if (findUserByEmail(email)) {
     throw new HTTPException(409, { message: 'Email already exists' })
   }
+
   const id = createUser({
     email,
     passwordHash: bcrypt.hashSync(password, 10),
@@ -85,12 +93,16 @@ admin.post('/students/import', async (c) => {
   }
 
   const groupName = String(body['groupName'] || '').trim()
-  let groupId = null
+  if (groupName.length > 100) {
+    throw new HTTPException(400, { message: 'Group name too long' })
+  }
+
+  let defaultGroupId = null
   if (groupName) {
     const existing = db
       .prepare('SELECT id FROM groups WHERE name = ?')
       .get(groupName)
-    groupId = existing ? existing.id : createGroup(groupName)
+    defaultGroupId = existing ? existing.id : createGroup(groupName)
   }
 
   const text = await file.text()
@@ -102,11 +114,15 @@ admin.post('/students/import', async (c) => {
       trim: true,
     })
   } catch {
-    throw new HTTPException(400, { message: 'Invalid CSV' })
+    throw new HTTPException(400, { message: 'Invalid CSV format' })
   }
 
   const result = { created: 0, skipped: 0, errors: [] }
-  const defaultPassword = process.env.DEFAULT_STUDENT_PASSWORD || 'student123'
+  const defaultPassword = process.env.DEFAULT_STUDENT_PASSWORD
+
+  if (!defaultPassword) {
+    throw new HTTPException(500, { message: 'DEFAULT_STUDENT_PASSWORD is not set' })
+  }
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
@@ -119,12 +135,18 @@ admin.post('/students/import', async (c) => {
       result.errors.push({ row: line, reason: 'email and name required' })
       continue
     }
+    
     if (findUserByEmail(email)) {
       result.skipped++
       continue
     }
 
-    let targetGroupId = groupId
+    if (email.length > 254 || name.length > 100) {
+      result.errors.push({ row: line, reason: 'field too long' })
+      continue
+    }
+
+    let targetGroupId = defaultGroupId
     if (rowGroup) {
       const g = db.prepare('SELECT id FROM groups WHERE name = ?').get(rowGroup)
       targetGroupId = g ? g.id : createGroup(rowGroup)

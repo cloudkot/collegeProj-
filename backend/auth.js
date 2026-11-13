@@ -1,6 +1,12 @@
 import { verify } from 'hono/jwt'
 import { HTTPException } from 'hono/http-exception'
 
+export const JWT_SECRET = process.env.JWT_SECRET
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is not set in .env')
+}
+
 export const authMiddleware = async (c, next) => {
   const header = c.req.header('Authorization')
   if (!header || !header.startsWith('Bearer ')) {
@@ -9,12 +15,13 @@ export const authMiddleware = async (c, next) => {
 
   const token = header.slice(7)
   try {
-    const payload = await verify(token, process.env.JWT_SECRET || 'dev-secret')
+    const payload = await verify(token, JWT_SECRET)
     c.set('user', payload)
-    await next()
   } catch {
-    throw new HTTPException(401, { message: 'Invalid token' })
+    throw new HTTPException(401, { message: 'Invalid or expired token' })
   }
+
+  await next()
 }
 
 export const requireRole = (...roles) => {
