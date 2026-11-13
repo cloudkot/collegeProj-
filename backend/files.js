@@ -93,10 +93,11 @@ export const convertToPdf = async (sourcePath, ext) => {
   return targetName
 }
 
-export const removeTemp = async (filePath) => {
-  try {
-    await fs.promises.unlink(filePath)
-  } catch {}
+export const moveToStorage = async (tempPath, ext) => {
+  const name = `${crypto.randomUUID()}${ext}`
+  const targetPath = path.join(UPLOAD_DIR, name)
+  await fs.promises.rename(tempPath, targetPath)
+  return name
 }
 
 export const pdfPath = (storedName) => path.join(PDF_DIR, storedName)

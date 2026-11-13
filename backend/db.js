@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL CHECK (role IN ('student','teacher','admin')),
   name TEXT NOT NULL,
   group_id INTEGER REFERENCES groups(id) ON DELETE SET NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  last_seen_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_users_group ON users(group_id);
 
@@ -46,6 +47,7 @@ CREATE TABLE IF NOT EXISTS materials (
   chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
   original_name TEXT NOT NULL,
   stored_pdf TEXT NOT NULL,
+  stored_source TEXT, -- новое поле
   size_bytes INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -71,6 +73,14 @@ CREATE TABLE IF NOT EXISTS reactions (
   type TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (material_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  details TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `)
 
@@ -132,11 +142,11 @@ export const listMaterials = (chatId) =>
     'SELECT * FROM materials WHERE chat_id = ? ORDER BY created_at DESC'
   ).all(chatId)
 
-export const createMaterial = ({ chatId, originalName, storedPdf, sizeBytes }) =>
+export const createMaterial = ({ chatId, originalName, storedPdf, storedSource, sizeBytes }) =>
   db.prepare(`
-    INSERT INTO materials (chat_id, original_name, stored_pdf, size_bytes)
-    VALUES (?, ?, ?, ?)
-  `).run(chatId, originalName, storedPdf, sizeBytes).lastInsertRowid
+    INSERT INTO materials (chat_id, original_name, stored_pdf, stored_source, size_bytes)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(chatId, originalName, storedPdf, storedSource, sizeBytes).lastInsertRowid
 
 export const getMaterial = (materialId) =>
   db.prepare('SELECT * FROM materials WHERE id = ?').get(materialId)
@@ -177,4 +187,40 @@ export const getMaterialStats = (materialId) => {
   `).all(materialId)
   
   return { opened, downloaded, reactions }
+}
+
+export const touchUser = (userId) =>
+  db.prepare(`UPDATE users SET last_seen_at = datetime('now') WHERE id = ?`).run(userId)
+
+export const listOnlineUsers = () =>
+  db.prepare(`
+    SELECT id, name, role, last_seen_at
+    FROM users
+    WHERE last_seen_at > datetime('now', '-2 minutes')
+  `).all()
+
+export const logAction = (userId, action, details = null) =>
+  db.prepare(`
+    INSERT INTO audit_log (user_id, action, details) VALUES (?, ?, ?)
+  `).run(userId, action, details ? JSON.stringify(details) : null)
+
+export const listAuditLog = (limit = 100) =>
+  db.prepare(`
+    SELECT a.id, a.action, a.details, a.created_at, u.name AS user_name
+    FROM audit_log a
+    LEFT JOIN users u ON u.id = a.user_id
+    ORDER BY a.created_at DESC
+    LIMIT ?
+  `).all(limit)
+
+export const getMaterialStatsAggregated = (materialId) => {
+  const base = getMaterialStats(materialId)
+  const rows = db.prepare(`
+    SELECT type, COUNT(*) AS count FROM reactions
+    WHERE material_id = ? GROUP BY type
+  `).all(materialId)
+
+  const aggregated = {}
+  for (const r of rows) aggregated[r.type] = r.count
+  return { ...base, aggregated }
 }

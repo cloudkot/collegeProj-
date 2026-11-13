@@ -11,6 +11,12 @@ import {
   ensureChat,
   db,
 } from '../db.js'
+import { listOnlineUsers, listAuditLog } from '../db.js' // добавь в импорт сверху
+
+
+admin.get('/online', (c) => c.json(listOnlineUsers()))
+
+admin.get('/audit', (c) => c.json(listAuditLog()))
 
 const admin = new Hono()
 

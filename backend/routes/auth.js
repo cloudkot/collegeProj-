@@ -4,12 +4,14 @@ import bcrypt from 'bcryptjs'
 import { HTTPException } from 'hono/http-exception'
 import { findUserByEmail, findUserById } from '../db.js'
 import { authMiddleware, JWT_SECRET } from '../auth.js'
+import { loginRateLimit } from '../middleware/rate-limit.js'
+import { findUserByEmail, findUserById, logAction } from '../db.js'
 
 const auth = new Hono()
 
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7
 
-auth.post('/login', async (c) => {
+auth.post('/login', loginRateLimit, async (c) => {
   const { email, password } = await c.req.json()
 
   if (!email || !password) {
@@ -33,6 +35,8 @@ auth.post('/login', async (c) => {
     },
     JWT_SECRET
   )
+
+  logAction(user.id, 'login', { ip: c.req.header('x-forwarded-for') || 'local' })
 
   return c.json({
     token,
