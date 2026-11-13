@@ -3,6 +3,8 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { HTTPException } from 'hono/http-exception'
+import materialRoutes from './routes/materials.js'
+import reactionRoutes from './routes/reactions.js'
 
 // Импорт роутов (пока заглушки, будем наполнять)
 import authRoutes from './routes/auth.js'
@@ -24,6 +26,8 @@ app.use('*', cors({
 app.get('/api/health', (c) => c.json({ ok: true }))
 
 // Монтируем роуты
+app.route('/api/materials', materialRoutes)
+app.route('/api/reactions', reactionRoutes)
 app.route('/api/auth', authRoutes)
 app.route('/api/chats', chatRoutes)
 app.route('/api/materials', materialRoutes)
