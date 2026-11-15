@@ -1,0 +1,26 @@
+<div class="chats-container">
+    <header class="header">
+        <h2>Мои чаты</h2>
+        <button class="logout-btn" (click)="logout()">Выйти</button>
+    </header>
+
+    @if (isLoading()) {
+    <p class="loading">Загрузка...</p>
+    } @else {
+    @if (chats().length === 0) {
+    <p class="empty-state">Пока нет чатов</p>
+    } @else {
+    <div class="chat-list">
+        @for (chat of chats(); track chat.id) {
+        <div class="chat-card" [routerLink]="['/chats', chat.id]">
+            <!-- Заголовок берется строго из title по ТЗ -->
+            <h3>{{ chat.title }}</h3>
+            @if (chat.lastMaterial) {
+            <p class="last-material">Последний материал: {{ chat.lastMaterial }}</p>
+            }
+        </div>
+        }
+    </div>
+    }
+    }
+</div>

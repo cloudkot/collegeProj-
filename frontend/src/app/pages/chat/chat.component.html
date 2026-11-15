@@ -1,0 +1,55 @@
+<div class="chat-container">
+    <!-- Шапка чата -->
+    <header class="chat-header">
+        <h2>{{ chatTitle() }}</h2>
+        <div class="role-badge">Роль: {{ authService.getUserRole() }}</div>
+    </header>
+
+    <!-- Загрузчик файлов (только для преподавателя) -->
+    @if (isTeacher) {
+    <app-uploader (onUpload)="handleUpload($event)"></app-uploader>
+    }
+
+    <!-- Лента материалов -->
+    <div class="materials-list">
+        @for (material of materials(); track material.id) {
+        <div class="material-card">
+
+            <!-- Информация о файле -->
+            <div class="material-info">
+                <h3>{{ material.originalName }}</h3>
+                <p>
+                    Дата: {{ material.createdAt | date:'short' }} |
+                    Размер: {{ material.size / 1024 / 1024 | number:'1.1-1' }} MB
+                </p>
+            </div>
+
+            <!-- Кнопки действий -->
+            <div class="material-actions">
+                <button (click)="openPdf(material)">Открыть</button>
+
+                <button (click)="downloadFile(material)">Скачать</button>
+
+                @if (isTeacher) {
+                <button class="stats-btn">Статистика</button>
+                <button class="source-btn">Скачать исходник</button>
+                }
+            </div>
+
+            <!-- Блок реакций (только для студента) -->
+            @if (isStudent) {
+            <app-reactions [types]="availableReactions()" [current]="currentReaction()"
+                (select)="setReaction(material.id, $event)"></app-reactions>
+            }
+        </div>
+        }
+    </div>
+
+    <!-- Просмотр PDF (появляется после нажатия "Открыть") -->
+    @if (selectedPdfUrl() !== null) {
+    <div class="pdf-section">
+        <h3>Просмотр документа</h3>
+        <app-pdf-viewer [url]="selectedPdfUrl()"></app-pdf-viewer>
+    </div>
+    }
+</div>
