@@ -7,13 +7,13 @@
 
 ## Структура
 
-├── backend/ # Hono API, SQLite, конвертация файлов
-├── frontend/ # Angular-приложение
-├── create-admin.js # Создание первого администратора
-├── generate-env.js # Генерация .env со случайным JWT_SECRET
-├── start.js # Запуск бэкенда и фронтенда одной командой
-├── .env.example # Шаблон переменных окружения
-└── README.md
+├── backend/ # Hono API, SQLite, конвертация файлов 
+├── frontend/ # Angular-приложение 
+├── create-admin.js # Создание первого администратора 
+├── generate-env.js # Генерация .env со случайным JWT_SECRET 
+├── start.js # Запуск бэкенда и фронтенда одной командой 
+├── .env.example # Шаблон переменных окружения 
+└── README.md 
 
 ## Запуск
 
