@@ -1,26 +1,49 @@
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import bcrypt from 'bcryptjs'
+import crypto from 'node:crypto'
 import { parse } from 'csv-parse/sync'
 import { authMiddleware, requireRole } from '../auth.js'
 import {
   listGroups,
   createGroup,
   findUserByEmail,
+  findUserByLogin,
   createUser,
   ensureChat,
+  listOnlineUsers,
+  listAuditLog,
   db,
 } from '../db.js'
-import { listOnlineUsers, listAuditLog } from '../db.js' // добавь в импорт сверху
-
-
-admin.get('/online', (c) => c.json(listOnlineUsers()))
-
-admin.get('/audit', (c) => c.json(listAuditLog()))
 
 const admin = new Hono()
 
 admin.use('*', authMiddleware, requireRole('admin'))
+
+const randomPassword = (length = 12) => {
+  const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let pass = ''
+  const bytes = crypto.randomBytes(length)
+  for (let i = 0; i < length; i++) pass += chars[bytes[i] % chars.length]
+  return pass
+}
+
+const generateLogin = (name) => {
+  const map = {
+    'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y',
+    'к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f',
+    'х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'
+  }
+  const translit = name.split('').map((ch) => map[ch] || ch).join('')
+  const base = translit.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20) || 'user'
+  
+  let login = base
+  let suffix = 1
+  while (findUserByLogin(login)) {
+    login = `${base}${suffix++}`
+  }
+  return login
+}
 
 admin.get('/groups', (c) => c.json(listGroups()))
 
@@ -42,31 +65,33 @@ admin.post('/groups', async (c) => {
 
 admin.get('/teachers', (c) => {
   const rows = db
-    .prepare("SELECT id, email, name FROM users WHERE role = 'teacher' ORDER BY name")
+    .prepare("SELECT id, login, email, name FROM users WHERE role = 'teacher' ORDER BY name")
     .all()
   return c.json(rows)
 })
 
 admin.post('/teachers', async (c) => {
-  const { email, password, name } = await c.req.json()
+  const { email, name } = await c.req.json()
   
-  if (!email || !password || !name) {
-    throw new HTTPException(400, { message: 'email, password, name required' })
-  }
-  if (password.length < 6) {
-    throw new HTTPException(400, { message: 'Password must be at least 6 chars' })
+  if (!email || !name) {
+    throw new HTTPException(400, { message: 'email and name required' })
   }
   if (findUserByEmail(email)) {
     throw new HTTPException(409, { message: 'Email already exists' })
   }
 
+  const login = generateLogin(name)
+  const password = randomPassword()
+
   const id = createUser({
+    login,
     email,
     passwordHash: bcrypt.hashSync(password, 10),
     role: 'teacher',
     name,
   })
-  return c.json({ id }, 201)
+
+  return c.json({ id, login, password, email }, 201)
 })
 
 admin.post('/groups/:id/teachers', async (c) => {
@@ -123,12 +148,7 @@ admin.post('/students/import', async (c) => {
     throw new HTTPException(400, { message: 'Invalid CSV format' })
   }
 
-  const result = { created: 0, skipped: 0, errors: [] }
-  const defaultPassword = process.env.DEFAULT_STUDENT_PASSWORD
-
-  if (!defaultPassword) {
-    throw new HTTPException(500, { message: 'DEFAULT_STUDENT_PASSWORD is not set' })
-  }
+  const result = { created: 0, skipped: 0, errors: [], createdUsers: [] }
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
@@ -159,14 +179,20 @@ admin.post('/students/import', async (c) => {
     }
 
     try {
+      const login = generateLogin(name)
+      const password = randomPassword()
+
       createUser({
+        login,
         email,
-        passwordHash: bcrypt.hashSync(defaultPassword, 10),
+        passwordHash: bcrypt.hashSync(password, 10),
         role: 'student',
         name,
         groupId: targetGroupId,
       })
+      
       result.created++
+      result.createdUsers.push({ login, password, name, email })
     } catch (err) {
       result.errors.push({ row: line, reason: err.message })
     }
@@ -174,5 +200,9 @@ admin.post('/students/import', async (c) => {
 
   return c.json(result)
 })
+
+admin.get('/online', (c) => c.json(listOnlineUsers()))
+
+admin.get('/audit', (c) => c.json(listAuditLog()))
 
 export default admin

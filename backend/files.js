@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import crypto from 'node:crypto'
+import nodemailer from 'nodemailer'
 
 const exec = promisify(execFile)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -41,6 +42,20 @@ export const validateFile = (originalName, sizeBytes) => {
     return { ok: false, error: 'File exceeds 25 MB' }
   }
   return { ok: true, ext }
+}
+
+export const sendEmail = async (to, subject, text) => {
+  if (!process.env.SMTP_HOST) {
+    console.warn(`[email] SMTP not configured. Would send to ${to}: ${subject}`)
+    console.log(`[email] Body: ${text}`)
+    return
+  }
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  })
+  await transporter.sendMail({ from: process.env.SMTP_USER, to, subject, text })
 }
 
 export const saveTemp = async (buffer, ext) => {

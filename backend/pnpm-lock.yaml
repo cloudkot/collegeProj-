@@ -9,7 +9,7 @@ importers:
   .:
     dependencies:
       '@hono/node-server':
-        specifier: ^1.13.7
+        specifier: ^1.19.19
         version: 1.19.19(hono@4.13.18)
       bcryptjs:
         specifier: ^2.4.3
@@ -23,6 +23,9 @@ importers:
       hono:
         specifier: ^4.6.14
         version: 4.13.18
+      nodemailer:
+        specifier: ^10.5.0
+        version: 10.5.0
 
 packages:
 
@@ -114,6 +117,10 @@ packages:
   node-abi@3.101.0:
     resolution: {integrity: sha512-bkb/RkuWCE64eWu1PCh3Fu2pGc9mKRs+kOE+FU2bGHRYlQa86/D321DSATV54AsCQMKz3/xSt9sRgraZTpqdhQ==}
     engines: {node: '>=10'}
+
+  nodemailer@10.5.0:
+    resolution: {integrity: sha512-L/w/HH5MqpzMDuZD7fQdt/+KqymuvrpaApaIjAH2XA3ILePwlcvXCVVvP75xVrXCEt2ggK2marrrHHFB5Qu0kA==}
+    engines: {node: '>=20.0.0'}
 
   once@1.4.0:
     resolution: {integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==}
@@ -245,6 +252,8 @@ snapshots:
   node-abi@3.101.0:
     dependencies:
       semver: 7.8.6
+
+  nodemailer@10.5.0: {}
 
   once@1.4.0:
     dependencies:

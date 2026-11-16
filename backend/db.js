@@ -18,13 +18,17 @@ CREATE TABLE IF NOT EXISTS groups (
 
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  login TEXT NOT NULL UNIQUE,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('student','teacher','admin')),
   name TEXT NOT NULL,
   group_id INTEGER REFERENCES groups(id) ON DELETE SET NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  last_seen_at TEXT
+  must_change_password INTEGER NOT NULL DEFAULT 1,
+  reset_token TEXT,
+  reset_expires TEXT,
+  last_seen_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_users_group ON users(group_id);
 
@@ -90,10 +94,11 @@ export const findUserByEmail = (email) =>
 export const findUserById = (id) =>
   db.prepare('SELECT id, email, role, name, group_id FROM users WHERE id = ?').get(id)
 
-export const createUser = ({ email, passwordHash, role, name, groupId = null }) =>
-  db.prepare(
-    'INSERT INTO users (email, password_hash, role, name, group_id) VALUES (?, ?, ?, ?, ?)'
-  ).run(email, passwordHash, role, name, groupId).lastInsertRowid
+export const createUser = ({ login, email, passwordHash, role, name, groupId = null }) =>
+  db.prepare(`
+    INSERT INTO users (login, email, password_hash, role, name, group_id)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(login, email, passwordHash, role, name, groupId).lastInsertRowid
 
 export const listGroups = () => db.prepare('SELECT * FROM groups ORDER BY name').all()
 
@@ -223,4 +228,24 @@ export const getMaterialStatsAggregated = (materialId) => {
   const aggregated = {}
   for (const r of rows) aggregated[r.type] = r.count
   return { ...base, aggregated }
+}
+
+export const findUserByLogin = (login) =>
+  db.prepare('SELECT * FROM users WHERE login = ?').get(login)
+
+export const setResetToken = (userId, token, expiresAt) =>
+  db.prepare('UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?')
+    .run(token, expiresAt, userId)
+
+export const findByResetToken = (token) =>
+  db.prepare('SELECT * FROM users WHERE reset_token = ? AND reset_expires > datetime("now")').get(token)
+
+export const updatePassword = (userId, hash, clearReset = false) => {
+  if (clearReset) {
+    db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0, reset_token = NULL, reset_expires = NULL WHERE id = ?')
+      .run(hash, userId)
+  } else {
+    db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?')
+      .run(hash, userId)
+  }
 }
